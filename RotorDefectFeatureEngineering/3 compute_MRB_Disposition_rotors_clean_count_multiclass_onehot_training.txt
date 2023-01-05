@@ -1,0 +1,69 @@
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+# -*- coding: utf-8 -*-
+import dataiku
+import pandas as pd, numpy as np
+from dataiku import pandasutils as pdu
+
+# Read recipe inputs
+mrb_Disposition_rotors_clean_for_ML_onehot = dataiku.Dataset("MRB_Disposition_rotors_clean_for_ML_onehot")
+df = mrb_Disposition_rotors_clean_for_ML_onehot.get_dataframe()
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+#This was done in a previous recipe:
+#remove_features = ["creation_date", "responsible_coe", "rejected_coe", "discrepancy_number",
+#                  "disposition_number", "F_DISCREPANCY_OID", "F_DISPOSITION_OID", "document_type",
+#                  "disposition_text"]
+
+#df = df.drop(columns=remove_features)
+#df.columns.values
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+# Oversampling the RWK, SCRAP, and UAI classes
+
+# rwk = df.loc[df["target_disposition"] == "RWK", :]
+# scrap = df.loc[df["target_disposition"] == "SCRAP", :]
+# uai = df.loc[df["target_disposition"] == "UAI", :]
+# rpr = df.loc[df["target_disposition"] == "RPR", :]
+
+# print("Original shape: {}".format(df.shape))
+# print("---RWK data shape: {}".format(rwk.shape))
+# print("---SCRAP data shape: {}".format(scrap.shape))
+# print("---UAI data shape: {}".format(uai.shape))
+# print("---rpr data shape: {}".format(rpr.shape))
+
+# for i in range(12):
+#     df = df.append(rwk)
+# for i in range(5):
+#     df = df.append(scrap)
+# for i in range(2):
+#     df = df.append(uai)
+# print("new data shape: {}".format(df.shape))
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+# print(" RWK Count: {}".format(len(df[df["target_disposition"] == "RWK"])))
+# print(" SCRAP Count: {}".format(len(df[df["target_disposition"] == "SCRAP"])))
+# print(" UAI Count: {}".format(len(df[df["target_disposition"] == "UAI"])))
+# print(" RPR Count: {}".format(len(df[df["target_disposition"] == "RPR"])))
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+dftrain   = df.loc[df["creation_year"].isin(["2017", "2018", "2019"]), :].reset_index(drop=True)
+dftest    = df.loc[df["creation_year"].isin(["2020"]), :].reset_index(drop=True)
+dfholdout = df.loc[df["creation_year"].isin(["2021"]), :].reset_index(drop=True)
+
+print("dftrain shape:", dftrain.shape)
+print("dftest shape:", dftest.shape)
+print("dfholdout shape:", dfholdout.shape)
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+#dftrain = dftrain.drop(columns=["creation_year"])
+#dftest = dftest.drop(columns=["creation_year"])
+#dfholdout = dfholdout.drop(columns=["creation_year"])
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+# Write recipe outputs
+mrb_Disposition_rotors_clean_multiclass_onehot_training = dataiku.Dataset("MRB_Disposition_rotors_clean_multiclass_onehot_training")
+mrb_Disposition_rotors_clean_multiclass_onehot_training.write_with_schema(dftrain)
+mrb_Disposition_rotors_clean_multiclass_onehot_testing = dataiku.Dataset("MRB_Disposition_rotors_clean_multiclass_onehot_testing")
+mrb_Disposition_rotors_clean_multiclass_onehot_testing.write_with_schema(dftest)
+mrb_Disposition_rotors_clean_multiclass_onehot_holdout = dataiku.Dataset("MRB_Disposition_rotors_clean_multiclass_onehot_holdout")
+mrb_Disposition_rotors_clean_multiclass_onehot_holdout.write_with_schema(dfholdout)

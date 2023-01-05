@@ -1,0 +1,113 @@
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+#took 45 minutes ~12pm 4/6/2021
+
+# -*- coding: utf-8 -*-
+import dataiku
+import pandas as pd, numpy as np
+from dataiku import pandasutils as pdu
+import six
+import time
+import re
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_extraction.text import CountVectorizer
+
+# Read recipe inputs
+MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans = dataiku.Dataset("MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans")
+MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df = MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans.get_dataframe()
+
+
+# Compute recipe outputs from inputs
+# TODO: Replace this part by your actual code that computes the output, as a Pandas dataframe
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+#the indexes of the input dataset will be increasing from 0-# rows, but skipping some numbers, as records with no disposition
+#were removed a while ago. Here we reindex to fix that:
+MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.reset_index(drop=True,inplace=True)
+
+#There were still some NaN values for defect_text, so this replaces them with an empty string to avoid errors down the line
+MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df['defect_text']=MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df['defect_text'].fillna("")
+
+#Functionality moved to compute...Clean_for_ML_1
+#DSS doesn't support dataframes containing multiple columns with the same name, so
+#I'm renaming our target variable called "disposition" to "target_disposition
+#so that when the word "disposition" is found in defect_text and gets its own column,
+#there will be no errors.
+#Additionally, I'm also changing the column name "nomenclature" to "part_nomenclature" so that all non-onehot column names include a "_".
+#Then, we can apply anything to the other columns (the onehot columns) once as a group (using a regex expression for _ included) instead of individually naming each onehot column
+#MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df=MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.rename(columns={"disposition": "target_disposition", "nomenclature":"part_nomenclature"})
+
+#check steps
+print("input's num rows: ")
+print(len(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df))
+print("input's num cols: ")
+print(len(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.columns))
+print(list(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.columns))
+print(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df["defect_text"].head(100))
+#qm_NCM_Disp_DSC_Clean_for_ML_df.head(100)
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+noNulls=True
+countnulls=0
+for thing in MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.index:
+    currentDefectText= MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df.loc[thing, "defect_text"]
+    if not isinstance(currentDefectText, six.string_types):
+        noNulls=False
+        countnulls=countnulls+1
+        print("row "+str(thing)+"is nan")
+        print("current defect text is: "+str(currentDefectText))
+        print(type(currentDefectText))
+print("noNulls= "+str(noNulls))
+print(countnulls)
+#Checks that there are no NaN values in the dataframe for defect_text
+
+# -------------------------------------------------------------------------------- NOTEBOOK-CELL: CODE
+vectorizer = CountVectorizer()
+# tokenize and build vocab based on the contents of the defect_text column
+vectorizer.fit(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df["defect_text"])
+
+#print each word that appears at least once in the defect_text column and the index assigned to each word
+#print(vectorizer.vocabulary_)
+
+print(len(vectorizer.vocabulary_)) #number of distinct words in all of the defect_text examined
+#print(str(vectorizer.get_feature_names())) #lists the vocab words
+
+#get the counts of each vocab word in each record of defect_text in the dataframe
+transformedContent = vectorizer.transform(MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df["defect_text"])
+print("tranformedContent: ")
+print("Shape is: "+str(transformedContent.shape))
+print(transformedContent)
+
+#convert transformedContent to a dataframe
+dfTransformedContent= pd.DataFrame(transformedContent.toarray(), columns=vectorizer.get_feature_names())
+print("dfTransformedContent: ")
+dfTransformedContent
+#transformed vocab dataframe is: dfTransformedContent
+#check step
+print("dfTransformedContent num rows: ")
+print(len(dfTransformedContent))
+print("dfTransformedContent num cols: ")
+print(len(dfTransformedContent.columns))
+
+# now concatenate main dataframe and dfTransformedContent together:
+strt=time.time()
+newDf= pd.concat([MRB_Disposition_rotors_clean_for_ML_with_date_info_and_nomenclature_booleans_df, dfTransformedContent], axis=1)
+print("newDf: ")
+fin=time.time()
+elapsed=fin-strt
+print("time it took to concatenate: "+str(elapsed))
+#check step
+print("newDf num rows: ")
+print(len(newDf))
+print("newDf num cols: ")
+print(len(newDf.columns))
+#took 4 mins on 4/5 at 2pm
+#newDf
+
+# NB: DSS also supports other kinds of APIs for reading and writing data. Please see doc.
+
+MRB_Disposition_rotors_clean_for_ML_onehot_df = newDf # For this sample code, simply copy input to output
+
+
+# Write recipe outputs
+MRB_Disposition_rotors_clean_for_ML_onehot = dataiku.Dataset("MRB_Disposition_rotors_clean_for_ML_onehot")
+MRB_Disposition_rotors_clean_for_ML_onehot.write_with_schema(MRB_Disposition_rotors_clean_for_ML_onehot_df)
